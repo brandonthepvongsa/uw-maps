@@ -1,15 +1,10 @@
 package com.brandonthepvongsa.uwmaps;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.nio.charset.Charset;
 import java.util.ArrayList;
-import java.util.Currency;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +21,7 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import android.app.ActionBar;
@@ -33,6 +29,7 @@ import android.app.Activity;
 import android.app.SearchManager;
 import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.AsyncTask;
@@ -56,6 +53,8 @@ public class MainActivity extends Activity {
 	private List<LatLng> bikeLocks;
 	private Map<String, LatLng> buildings;
 	private boolean bikeLocksShown = false;
+	
+	private Menu menu;
 
 	// // Drop Down Menu
 	// SpinnerAdapter mSpinnerAdapter = ArrayAdapter.createFromResource(this,
@@ -95,6 +94,34 @@ public class MainActivity extends Activity {
 
 		// Handle search from the actionBar
 		handleIntent(getIntent());
+		// Load coordinates of various provided amenities from files
+		try {
+			bikeLocks = readCordFile("bike-locks.txt");
+			buildings = readMapFile("building-cords.txt");
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		// Start up the database tables
+		DatabaseTable databaseTable = new DatabaseTable(this);
+		
+		String[] cols = {"TITLE", "LAT", "LNG"};
+		String query = "kane";
+		Log.e("app", "what in the fuck...");
+		Cursor cursor = databaseTable.getBuildingMatches(query, null);
+		
+		if(cursor == null) {
+			Log.e("app", "cursor is actually null tbh");
+		} else {
+			Log.e("App", "titlesss: " + cursor.getString(cursor.getColumnIndex("TITLE")));
+			while(cursor.moveToNext()) {
+				Log.e("App", "title: " + cursor.getString(cursor.getColumnIndex("TITLE"))); 
+			}
+			Log.e("app", "oh so maybe there's no results...");
+			cursor.close();
+		}
+		
+		
+		
 	}
 
 	/**
@@ -103,14 +130,10 @@ public class MainActivity extends Activity {
 	protected void onStart() {
 		super.onStart();
 
-		// Load coordinates of various provided amenities from files
-		try {
-			bikeLocks = readCordFile("bike-locks.txt");
-			buildings = readMapFile("building-cords.txt");
-			Log.e("myApp", "worked ");
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		
+		
+		
+		
 
 	}
 
@@ -136,9 +159,14 @@ public class MainActivity extends Activity {
 					// Clear out any other markers
 					map.clear();
 					// Add the new marker
-					map.addMarker(new MarkerOptions()
+					Marker marker = map.addMarker(new MarkerOptions()
 					.icon(BitmapDescriptorFactory.fromAsset("house_pin.png"))
+					.title(key)
+                    .snippet(buildings.get(key).toString())
 					.position(buildings.get(key)));
+					
+					// Display the info window
+					marker.showInfoWindow();
 				}
 			}
 		}
@@ -153,6 +181,7 @@ public class MainActivity extends Activity {
 	private void addMarker(LatLng latlng) {
 		map.addMarker(new MarkerOptions().icon(
 				BitmapDescriptorFactory.fromAsset("lock_pin_svg.png"))
+				.snippet(latlng.toString())
 				.position(latlng));
 	}
 
@@ -239,7 +268,7 @@ public class MainActivity extends Activity {
 
 				// Add the new LatLng to the list
 				results.add(latlng);
-				Log.e("myApp", mLine);
+
 
 				mLine = reader.readLine();
 			}
@@ -287,7 +316,6 @@ public class MainActivity extends Activity {
 
 				// Add the new LatLng to the list
 				results.put(name, latlng);
-				Log.e("myApp", mLine);
 
 				mLine = reader.readLine();
 			}
@@ -306,13 +334,18 @@ public class MainActivity extends Activity {
 		return results;
 	}
 
+	private void loadHistory(String query) {
+		
+	}
 	/**
 	 * Inflate the ActionBar and set the search bar to be open by default
 	 */
 	public boolean onCreateOptionsMenu(Menu menu) {
 		MenuInflater inflater = getMenuInflater();
 		inflater.inflate(R.menu.options_menu, menu);
-
+		
+		this.menu = menu;
+		
 		// Associate searchable configuration with the SearchView
 		SearchManager searchManager = (SearchManager) getSystemService(Context.SEARCH_SERVICE);
 		SearchView searchView = (SearchView) menu.findItem(R.id.search)
@@ -321,6 +354,7 @@ public class MainActivity extends Activity {
 				.getSearchableInfo(getComponentName()));
 		searchView.setIconifiedByDefault(false);
 
+		
 		return true;
 	}
 
